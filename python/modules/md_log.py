@@ -6,19 +6,19 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 
-######################Start init des fichiers
+######################init file
 #
-#initialise le chemin du fichier de log
-def fxloginit(pathlogfile):
+#init logfile path
+def mdloginit(pathlogfile):
     logf=pathlogfile
-    #Initialisation et ecrit le fichier
+    #Init and write file
     if not os.path.exists(logf):
         logs = open(logf, "w")
         logs.close()
 
 
-############################# Start Rotalion de la log
-#
+############################# parameter Log Rotate
+
 #number for the backupCount parameter 5 backup logs
 #second (s)
 #minute (m)
@@ -31,7 +31,7 @@ def fxloginit(pathlogfile):
 ###########################################
 
 ###########################################
-def fxcreate_timed_rotating_log(path,when1,interval1,backupCount1):
+def mdcreate_timed_rotating_log(path,when1,interval1,backupCount1):
     """"""
     logger = logging.getLogger("Rotating Log")
     logger.setLevel(logging.INFO)
@@ -48,9 +48,8 @@ def fxcreate_timed_rotating_log(path,when1,interval1,backupCount1):
 #    for i in range(6):
 #        logger.info("This is a test!")
 #        time.sleep(75)
-# fxcreate_timed_rotating_log(log_file_path)
-############################# Fin  Rotalion de la log
-#Active le fonctionnement de rotation de log en important le module md_log exemple from modules import md_log puis
-#md_log.fxcreate_timed_rotating_log(pathlogfile,"d",30,3)
-#
-#############################Fin Rotalion de la log
+# mdcreate_timed_rotating_log(log_file_path)
+
+#enable log rotate example:
+#from modules import md_log 
+#md_log.mdcreate_timed_rotating_log(pathlogfile,"d",30,3)
