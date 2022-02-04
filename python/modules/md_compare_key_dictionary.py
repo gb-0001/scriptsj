@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#GB-0001
+#GB-0001 github
 
 
 # compare if the key exists in the dictionary 1=OK 0=NOK

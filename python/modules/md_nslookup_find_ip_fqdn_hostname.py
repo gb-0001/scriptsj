@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-#GB-0001
+#GB-0001 github
 
 import subprocess
 
