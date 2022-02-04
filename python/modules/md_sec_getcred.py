@@ -3,7 +3,7 @@
 
 #read basic file 1st line login;password only 2nd line
 def mdgetcred(pathfile):
-    with open(readfile,'r') as myFile:
+    with open(pathfile,'r') as myFile:
         #take line 2
         for i in range(2):
             line = myFile.readline()
