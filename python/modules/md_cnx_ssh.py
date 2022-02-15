@@ -28,3 +28,16 @@ def mdsshcmd(hostname,user,pubkeypath,cmdtopass):
     print(ssh_stdin, ssh_stdout, ssh_stderr)
     ssh.close()
     return returnvalue
+
+def mdssholdcmd(hostname,user,passwd1,cmdtopass):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname, username=user,password=passwd1)
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmdtopass)
+#    print("out",ssh_stdout.read())
+#    print("IN",ssh_stdin.read())
+#    print("ERR",ssh_stderr.read())
+    returnvalue=ssh_stdout.read()
+    print(ssh_stdin, ssh_stdout, ssh_stderr)
+    ssh.close()
+    return returnvalue
