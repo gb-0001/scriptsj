@@ -9,7 +9,7 @@ import paramiko
 
 
 # Prerequisite to have done the key exchange beforehand for user
-#ex. mdsshcmd(sazk19,"user","/home/user/.ssh/id_rsa.pub","hostname")
+#ex. mdsshcmd(servername,"user","/home/user/.ssh/id_rsa.pub","hostname")
 def mdsshcmd(hostname,user,pubkeypath,cmdtopass):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
