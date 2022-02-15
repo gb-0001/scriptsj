@@ -2,6 +2,7 @@
 #GB-0001 github
 
 import subprocess
+from sys import platform
 
 #Get short hostname by ip
 def mdGetHostnameByIp(myIP):
@@ -44,12 +45,22 @@ def mdGetIpByHostname(myHOSTNAME):
     hostnameA = myHOSTNAME
     cmdIp = subprocess.Popen(['nslookup',hostnameA], stdout=subprocess.PIPE)
     cmdIpOutput = cmdIp.stdout.readlines()
-
-    for i in cmdIpOutput:
-        i= i.decode().strip()
-        if "#" not in i and i.startswith('Address:'):
-            break
-    description,ipA = i.split(" ")
-    return ipA
+    cpt=0
+    if platform == "linux" or platform =="linux32":
+        for i in cmdIpOutput:
+            i= i.decode().strip()
+            if "#" not in i and i.startswith('Address:'):
+                break
+        description,ipA = i.split(" ")
+        return ipA
+    elif platform == "win32"
+           for i in cmdIpOutput:
+            i= i.decode().strip()
+            if i.startswith('Address:'):
+                cpt+=1
+                if "#" not in i and i.startswith('Address:') and cpt == 2:
+                    break
+        ipA = i.split(" ")
+        return ipA[2]     
 #example result = mdGetIpByHostname(monHOSTNAME)
 
