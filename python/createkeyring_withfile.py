@@ -23,7 +23,7 @@ for line in lines:
     dicdatuserlist.update({application: (user,password)})
 
 
-#creation des credentials keyring
+#create credentials keyring
 for app1,val1 in dicdatuserlist.items():
     cmd1= 'createcredentials.py -s ' +app1+ ' -u ' +dicdatuserlist[app1][0]+ ' -p ' +dicdatuserlist[app1][1]+ ''
     cmd1tmp = subprocess.Popen(cmd1,shell=True, stdout=subprocess.PIPE)
