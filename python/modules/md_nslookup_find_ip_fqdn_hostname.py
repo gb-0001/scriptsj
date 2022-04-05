@@ -22,7 +22,7 @@ def mdGetHostnameByIp(myIP):
 #example result = mdGetHostnameByIp("192.168.1.1")
 
 #Get fqdn by ip
-def mdGetFqdnByIp(myIP):
+def mdGetFqdnByIp(myIP):0
     ip = myIP
     cmdFqdn = subprocess.Popen(['nslookup',ip], stdout=subprocess.PIPE)
     cmdFqdnOutput = cmdFqdn.stdout.readlines()

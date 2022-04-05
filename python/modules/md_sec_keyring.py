@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #GB-0001 github
 
 import keyring
