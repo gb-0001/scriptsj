@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import subprocess
-from modules.md_auth_keyring import mdkeyring
+from modules import md_auth_keyring
 import argparse
 
 
