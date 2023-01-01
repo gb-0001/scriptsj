@@ -1,38 +1,52 @@
 import os
-import re
-import urllib.request
-import multipywidgets as widgets
-from multipywidgets import Layout
-from IPython.display import display, clear_output
+import sys
 
-# Fonction pour extraire la version de OpenCV à partir de l'URL du dépôt Git
-def get_opencv_version(url):
-    html = urllib.request.urlopen(url).read().decode()
-    match = re.search(r'(?<=opencv/opencv/tree/)[0-9.]+(?=/)', html)
-    return match.group(0)
-
-# Récupérer la dernière version de OpenCV
-url = "https://github.com/opencv/opencv"
-opencv_version = get_opencv_version(url)
+# Récupérer la version de Python en cours d'exécution
+python_version = sys.version[:3]
 
 # Mettre à jour le système
 os.system("sudo apt update")
 os.system("sudo apt upgrade")
 
 # Installer les outils de compilation et les bibliothèques nécessaires
-os.system("sudo apt install build-essential cmake pkg-config")
-os.system("sudo apt install libjpeg-dev libtiff5-dev libjasper-dev libpng-dev")
-os.system("sudo apt install libavcodec-dev libavformat-dev libswscale-dev libv4l-dev")
-os.system("sudo apt install libxvidcore-dev libx264-dev")
-os.system("sudo apt install libfontconfig1-dev libcairo2-dev")
-os.system("sudo apt install libgdk-pixbuf2.0-dev libpango1.0-dev")
-os.system("sudo apt install libgtk2.0-dev libgtk-3-dev")
-os.system("sudo apt install libatlas-base-dev gfortran")
-os.system("sudo apt install python3-dev")
+pkgs = ["python3-pip", "build-essential", "cmake", "pkg-config", "libjpeg-dev", "libtiff5-dev", "libjasper-dev", "libpng-dev", "libavcodec-dev", "libavformat-dev", "libswscale-dev", "libv4l-dev", "libxvidcore-dev", "libx264-dev", "libfontconfig1-dev", "libcairo2-dev", "libgdk-pixbuf2.0-dev", "libpango1.0-dev", "libgtk2.0-dev", "libgtk-3-dev", "libatlas-base-dev", "gfortran", "python3-dev"]
 
-# Télécharger OpenCV
-opencv_url = f"https://github.com/opencv/opencv/archive/{opencv_version}.zip"
-opencv_contrib_url = f"https://github.com/opencv/opencv_contrib/archive/{opencv_version}.zip"
+for pkg in pkgs:
+    # Vérifier si le paquet est déjà installé
+    status = os.system(f"dpkg -s {pkg} 2> /dev/null | grep -q 'install ok installed'")
+    # Si le paquet n'est pas installé, l'installer
+    if status != 0:
+        os.system(f"sudo apt install -y {pkg}")
+
+# Vérifier si le module requests est disponible
+try:
+    import requests
+except ImportError:
+    # Installer le module requests avec pip
+    os.system("python3 -m pip install requests --user")
+
+def get_opencv_version(url):
+    repo_url = "https://api.github.com/repos/opencv/opencv/tags"
+    response = requests.get(repo_url)
+    # Vérifier que la réponse est valide
+    if response.status_code == 200:
+        # Récupérer la liste de dictionnaires retournée par l'API
+        data = response.json()
+
+        # Pour chaque dictionnaire de la liste, afficher la valeur de la clé 'name'
+        for item in data:
+            print(item['name'])
+            commit_sha=item['name']
+            break
+        return commit_sha
+    else:
+        raise ValueError("Erreur lors de la récupération de l'identifiant de version de OpenCV à partir de l'API REST de GitHub.")
+
+
+# Récupérer la dernière version de OpenCV
+url = "https://github.com/opencv/opencv"
+opencv_version = get_opencv_version(url)
+
 
 # Déterminer le nombre de coeurs du processeur
 with open("/proc/cpuinfo", "r") as f:
@@ -73,12 +87,22 @@ os.system(f"make -j{jobs}")
 os.system("sudo make install")
 os.system("sudo ldconfig")
 
+
+# Réinitialiser le répertoire de travail
+os.chdir("../")
+
+# Supprimer les fichiers inutiles
+os.system("rm -rf opencv*")
+
+# Créer un lien symbolique pour la bibliothèque Python de OpenCV
+os.system(f"sudo ln -s /usr/local/python/cv2/python-{python_version}/cv2.cpython-{python_version}m-arm-linux-gnueabihf.so /usr/local/lib/python{python_version}/site-packages/cv2.so")
+
 # Vérifier que OpenCV est correctement installé
 opencv_vers=os.system("python3 -c \"import cv2; print(cv2.__version__)\"")
 
 # Vérifier que OpenCV est correctement installé
 try:
     import cv2
-    print("OpenCV est correctement installé et fonctionne ! " + opencv_vers)
+    print("OpenCV est correctement installé et fonctionne ! " + str(opencv_vers))
 except ImportError:
     print("Erreur lors de l'installation ou du chargement de OpenCV.")
