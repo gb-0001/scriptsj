@@ -232,7 +232,7 @@ class KeePass:
             entries = group.entries
             for entry in entries:
                 if entry.title == title:
-                    group.remove_entry(entry)
+                    entries.remove(entry)
                     print(f"Title '{title}' successfully removed from group '{group_name}'.")
                     return
             print(f"Title '{title}' not found in group '{group_name}'.")
