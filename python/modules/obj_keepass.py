@@ -232,8 +232,10 @@ class KeePass:
             entries = group.entries
             for entry in entries:
                 if entry.title == title:
-                    entries.remove(entry)
+                    self.kp.delete_entry(entry)
                     print(f"Title '{title}' successfully removed from group '{group_name}'.")
+                    # Enregistrer la base de données
+                    self.kp.save()
                     return
             print(f"Title '{title}' not found in group '{group_name}'.")
         except Exception as e:
@@ -253,6 +255,8 @@ class KeePass:
     def create_group(self, group_name):
         try:
             self.kp.root_group.add_group(KeePassLib.Group(self.kp, parent=self.kp.root_group, name=group_name))
+            # Enregistrer la base de données
+            self.kp.save()
         except Exception as e:
             print(f"An error occurred while creating group '{group_name}': {e}")
 
@@ -264,6 +268,8 @@ class KeePass:
                 return
             self.kp.delete_group(group)
             print(f"Group '{group_name}' deleted.")
+            # Enregistrer la base de données
+            self.kp.save()
         except Exception as e:
             print(f"An error occurred - delete_group: {e}")
 
