@@ -117,7 +117,7 @@ class KeePass:
             entry_list = []
             for entry in entries:
                 entry_list.append(entry.title)
-                return entry_list
+            return entry_list
             
         except Exception as e:
             print(f"An error occurred - get_entries_by_group: {e}")
