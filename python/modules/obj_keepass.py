@@ -110,11 +110,15 @@ class KeePass:
     def get_entries_by_group(self, group_name):
         try:
             group = self.kp.find_groups(name=group_name, first=True)
-            entries = self.kp.find_entries(group=group)
-            entry_dict = {}
+            if group is None:
+                print(f"Le groupe '{group_name}' n'a pas été trouvé.")
+                return
+                
+            entry_list = []
             for entry in entries:
-                entry_dict[entry.title] = {'login': entry.username, 'password': entry.password}
-            return entry_dict
+                entry_list.append(entry.title)
+                return entry_list
+            
         except Exception as e:
             print(f"An error occurred - get_entries_by_group: {e}")
 
