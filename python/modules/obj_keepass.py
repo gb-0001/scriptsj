@@ -29,11 +29,11 @@ class KeePass:
         try:
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
-                print(f"Groupe '{group_name}' non trouvé.")
+                print(f"Group '{group_name}' not found.")
                 return None
             entry = self.kp.find_entries(title=title,group=group, first=True)
             if entry is None:
-                print(f"Entrée '{title}' non trouvée dans le groupe '{group_name}'.")
+                print(f"Title '{title}' not found in group '{group_name}'.")
                 return None
             custom_field = entry.custom_properties.get(customfieldkey)
             return custom_field
@@ -46,13 +46,13 @@ class KeePass:
             # Trouver le groupe
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
-                print(f"Groupe '{group_name}' non trouvé.")
+                print(f"Group '{group_name}' not  found.")
                 return
 
             # Trouver l'entrée dans le groupe
             entry = self.kp.find_entries(title=title, group=group, recursive=False, first=True)
             if entry is None:
-                print(f"Entrée avec le titre '{title}' non trouvée dans le groupe '{group_name}'.")
+                print(f"Title '{title}' not found in group '{group_name}'.")
                 return
 
             # Mettre à jour ou ajouter le champ personnalisé
@@ -61,7 +61,7 @@ class KeePass:
             # Enregistrer la base de données
             self.kp.save()
         except Exception as e:
-            print(f"Une erreur s'est produite lors de la mise à jour du champ personnalisé : {e}")
+            print(f"Error to update custom field : {e}")
 
     def export_all_attachment_by_group_title_to_dir(self, group_name, title, export_path):
         group = self.kp.find_groups(name=group_name, first=True)
@@ -117,7 +117,7 @@ class KeePass:
         try:
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
-                print(f"Le groupe '{group_name}' n'a pas été trouvé.")
+                print(f"Groupe '{group_name}' not found.")
                 return
                 
             entry_list = []
@@ -184,13 +184,13 @@ class KeePass:
             # Trouver le groupe
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
-                print(f"Groupe '{group_name}' non trouvé.")
+                print(f"Group '{group_name}' not found.")
                 return
 
             # Trouver l'entrée dans le groupe
             entry = self.kp.find_entries(title=title, group=group, recursive=False, first=True)
             if entry is None:
-                print(f"Entrée avec le titre '{title}' non trouvée dans le groupe '{group_name}'.")
+                print(f"Title '{title}' not found in group '{group_name}'.")
                 return
 
             # Mettre à jour les détails de l'entrée
@@ -206,32 +206,32 @@ class KeePass:
             # Enregistrer la base de données
             self.kp.save()
         except Exception as e:
-            print(f"Une erreur s'est produite lors de la mise à jour de l'entrée : {e}")
+            print(f"Error t o update entry : {e}")
 
     def delete_custom_field(self, group_name, title, field_name):
         try:
             # Trouver le groupe
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
-                print(f"Groupe '{group_name}' non trouvé.")
+                print(f"Group '{group_name}' not found.")
                 return
 
             # Trouver l'entrée dans le groupe
             entry = self.kp.find_entries(title=title, group=group, recursive=False, first=True)
             if entry is None:
-                print(f"Entrée avec le titre '{title}' non trouvée dans le groupe '{group_name}'.")
+                print(f"title '{title}' not found in group '{group_name}'.")
                 return
 
             # Supprimer le champ personnalisé
             if field_name in entry.custom_properties:
                 del entry.custom_properties[field_name]
             else:
-                print(f"Champ personnalisé '{field_name}' non trouvé dans l'entrée '{title}'.")
+                print(f"Custom field '{field_name}' not found with title '{title}'.")
 
             # Enregistrer la base de données
             self.kp.save()
         except Exception as e:
-            print(f"Une erreur s'est produite lors de la suppression du champ personnalisé : {e}")
+            print(f"Error to delete custom field : {e}")
 
     def delete_title_from_group(self, group_name, title):
         try:
