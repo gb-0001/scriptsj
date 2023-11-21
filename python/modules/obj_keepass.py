@@ -150,20 +150,20 @@ class KeePass:
         except Exception as e:
             print(f"An error occurred - user_exists_in_group: {e}")
    
-    def get_url_and_notes(self, group_name, entry_title):
+    def get_url_and_notes(self, group_name, title):
         try:
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
                 print(f"Group '{group_name}' not found.")
                 return
-            entry = group.find_entries(title=entry_title, first=True)
+            entry = self.kp.find_entries(title=title, first=True)
             if entry is None:
-                print(f"Entry '{entry_title}' not found in group '{group_name}'.")
+                print(f"Entry '{title}' not found in group '{group_name}'.")
                 return
             url = entry.url
             notes = entry.notes
-            print(f"URL: {url}")
-            print(f"Notes: {notes}")
+            return url,notes
+
         except Exception as e:
             print(f"An error occurred - get_url_and_notes: {e}")
         
