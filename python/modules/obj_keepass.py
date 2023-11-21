@@ -28,7 +28,13 @@ class KeePass:
     def get_custom_field_value_by_group_title_customfielkey(self, group_name, entry_title, customfieldkey):
         try:
             group = self.kp.find_groups(name=group_name, first=True)
+            if group is None:
+                print(f"Groupe '{group_name}' non trouvé.")
+                return None
             entry = self.kp.find_entries(title=entry_title,group=group, first=True)
+            if entry is None:
+                print(f"Entrée '{entry_title}' non trouvée dans le groupe '{group_name}'.")
+                return None
             custom_field = entry.custom_properties.get(customfieldkey)
             return custom_field
         except Exception as e:
