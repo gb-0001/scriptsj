@@ -25,15 +25,15 @@ class KeePass:
             print(f"An error occurred for get_kpss_login_password_by_group_title: {e}")
             return None, None        
 
-    def get_custom_field_value_by_group_title_customfielkey(self, group_name, entry_title, customfieldkey):
+    def get_custom_field_value_by_group_title_customfielkey(self, group_name, title, customfieldkey):
         try:
             group = self.kp.find_groups(name=group_name, first=True)
             if group is None:
                 print(f"Groupe '{group_name}' non trouvé.")
                 return None
-            entry = self.kp.find_entries(title=entry_title,group=group, first=True)
+            entry = self.kp.find_entries(title=title,group=group, first=True)
             if entry is None:
-                print(f"Entrée '{entry_title}' non trouvée dans le groupe '{group_name}'.")
+                print(f"Entrée '{title}' non trouvée dans le groupe '{group_name}'.")
                 return None
             custom_field = entry.custom_properties.get(customfieldkey)
             return custom_field
