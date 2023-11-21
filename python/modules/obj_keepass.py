@@ -29,7 +29,7 @@ class KeePass:
         try:
             group = self.kp.find_groups(name=group_name, first=True)
             entry = self.kp.find_entries(title=entry_title,group=group, first=True)
-            custom_field = entry._get_string_field(customfieldkey)
+            custom_field = entry.custom_properties.get(customfieldkey)
             return custom_field
         except Exception as e:
             print(f"An error occurred for get_custom_field_value_by_group_title_customfielkey: {e}")
