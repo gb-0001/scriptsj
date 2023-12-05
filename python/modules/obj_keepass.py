@@ -86,6 +86,26 @@ class KeePass:
                 f.write(data)
             print(f"Attachment '{attachment.filename}' exported to {export_path}")
 
+    def attachment_by_group_title_filename_exist(self, group_name, title, attachment_filename):
+        try:
+            group = self.kp.find_groups(name=group_name, first=True)
+            if group is None:
+                print(f"Group '{group_name}' not found.")
+                return
+            entry = self.kp.find_entries(title=title,group=group, first=True)
+            if not entry:
+                print(f"entry {title} not found in group {group_name}")
+                return
+            attachment = self.kp.find_attachments(filename=attachment_filename,element=group, first=True)
+            if not attachment:
+                print(f"attachment {attachment_filename} not found in entry {title}")
+            else:
+                val_found="OK"
+                return val_found
+        except Exception as e:
+            print(f"An error occured while retrieving attachment for file '{attachment_filename}': {e}")
+            return None
+    
     def export_1_attachment_by_group_title_filename_to_dir(self, group_name, title, attachment_filename, export_directory):
         group = self.kp.find_groups(name=group_name, first=True)
         if group is None:
