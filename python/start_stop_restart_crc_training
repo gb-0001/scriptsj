@@ -1,0 +1,214 @@
+import subprocess
+import json
+import time
+from collections import defaultdict
+from prettytable import PrettyTable
+
+#crc openshift training
+token1 = "MYTOKEN"
+server1 = "https://api.crc.testing:6443"
+project1 = "xxx-vvvv-lll-"
+MYENV = ["dv"]
+MYSON = {"dv": ["x00"]}
+lstproj = ["nada"]
+lstpod = ["myapp1"]
+lstSTATUS = ["test3"]
+mod = "started"
+
+def run_command(cmd):
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    return result.stdout.strip()
+
+def login_to_openshift(token, server):
+    cmd = f'oc login --token={token} --server={server}'
+    result = run_command(cmd)
+    print("RESULT", result)
+    if 'Login failed' in result:
+        raise Exception(f'Login failed with error: {result}')
+    elif 'Logged into' in result:
+        print(f'Successfully logged in {server}')
+    else:
+        print("Not logged check your token")
+        sys.exit(1)
+
+def get_pods_info(project, appname):
+    cmd = f"oc get pods -n {project} -l app={appname} -o json"
+    output = run_command(cmd)
+    pod_info = json.loads(output)
+    pods_info = []
+    if pod_info.get('items'):
+        for pod in pod_info['items']:
+            pod_name = pod['metadata']['name']
+            owner_reference = pod['metadata'].get('ownerReferences', [{}])[0].get('name', '')
+            pod_details = {
+                "podname": pod_name,
+                "owner_ref": owner_reference,
+                "details": {
+                    "READY": "N/A",
+                    "STATUS": "N/A",
+                    "RESTART": "N/A",
+                    "AGE": "N/A"
+                }
+            }
+            if pod.get('status'):
+                conditions = pod['status'].get('conditions', [])
+                for condition in conditions:
+                    if condition['type'] == 'Ready':
+                        pod_details['details']['READY'] = condition['status']
+                container_statuses = pod['status'].get('containerStatuses', [])
+                if container_statuses:
+                    container_status = container_statuses[0]
+                    pod_details['details']['STATUS'] = container_status.get('state', {}).get('running', {}).get('started', 'N/A')
+                    pod_details['details']['RESTART'] = container_status.get('restartCount', 'N/A')
+                pod_details['details']['AGE'] = pod['metadata'].get('creationTimestamp', 'N/A')
+            pods_info.append(pod_details)
+
+    return pods_info
+
+def get_desired_count(project, appname):
+    cmd = f"oc get replicaset -n {project} -l app={appname} -o=jsonpath=" + '{.items[0].metadata.annotations.deployment\.kubernetes\.io/desired-replicas}'
+    return run_command(cmd)
+
+def get_deployments(project):
+    cmd = f'oc get deployments -n {project}'
+    output = run_command(cmd)
+    return output.splitlines()
+
+def create_project_dict(project, deployments):
+    project_dict = {project: {'deployments': []}}
+    for deployment in deployments:
+        deployment_info = extract_deployment_info(deployment)
+        if deployment_info:
+            desired_count = get_desired_count(project, deployment_info['appname'])
+            deployment_info['desired_count'] = desired_count
+            deployment_info['pods'] = get_pods_info(project, deployment_info['appname'])
+            project_dict[project]['deployments'].append(deployment_info)
+    return project_dict
+
+def extract_deployment_info(deployment):
+    parts = deployment.split()
+    if len(parts) == 5 and parts[0] != 'NAME' and any(part.strip() for part in parts):
+        return {
+            "appname": parts[0],
+            "details": {
+                "READY": parts[1],
+                "UP-TO-DATE": parts[2],
+                "AVAILABLE": parts[3],
+                "AGE": parts[4]
+            }
+        }
+    else:
+        return {}
+
+def generate_project_names(project1, envs, SONs):
+    projectn = []
+    for env in envs:
+        if env in SONs:
+            for son_env in SONs[env]:
+                projectn.append(project1 + env + '-' + son_env)
+        else:
+            print(f' {env} not found')
+    return projectn
+
+def filter_prjndict(projndict, exclude_proj, exclude_app, exclude_status):
+    prjndict_filtered = {}
+    for project, data in projndict.items():
+        if any(project.startswith(excl) for excl in exclude_proj):
+            continue
+        deployments_filtered = []
+        for deployment in data['deployments']:
+            if any(deployment['appname'].startswith(excl) for excl in exclude_app):
+                continue
+            deployments_filtered.append(deployment)
+        if deployments_filtered:
+            prjndict_filtered[project] = {'deployments': deployments_filtered}
+    return prjndict_filtered
+
+def scale_deployment(project, appname, replicas=0):
+    cmd = f'oc scale --replicas={replicas} deployment/{appname} -n {project}'
+    result = run_command(cmd)
+    return result
+
+def check_deployment_status(project, appname, desired_count):
+    cmd = f'oc get pods -n {project} -l app={appname} -o json'
+    output = run_command(cmd)
+    pod_info = json.loads(output)
+    available_replicas = len(pod_info['items'])
+    if available_replicas > desired_count:
+        return False
+    return True
+
+def display_deployment_status(project_dict):
+    table = PrettyTable()
+    table.field_names = ["Project", "Application", "Pod Name", "Status", "Desired Count"]
+    for project, data in project_dict.items():
+        for deployment in data['deployments']:
+            appname = deployment['appname']
+            desired_count = deployment['desired_count']
+            for pod in deployment['pods']:
+                podname = pod['podname']
+                status = pod['details']['STATUS']
+                table.add_row([project, appname, podname, status, desired_count])
+    print(table)
+
+def manage_deployments(mode1, prjndict_filtered, batch_size=5):
+    print(f"Démarrage du mode : {mode1}")
+    failed_deployments = []
+    for project, data in prjndict_filtered.items():
+        appname_to_deployments = defaultdict(list)
+        for deployment in data['deployments']:
+            appname_to_deployments[deployment['appname']].append(deployment)
+
+        for appname, deployments in appname_to_deployments.items():
+            deployments = sorted(deployments, key=lambda deployment: int(deployment['desired_count']) > 1 if deployment['desired_count'].isdigit() else 0)
+            for i in range(0, len(deployments), batch_size):
+                batch = deployments[i:i+batch_size]
+                for deployment in batch:
+                    print(f"=> Traitement du déploiement applicatif : {deployment['appname']} dans le projet : {project}")
+                    desired_count = int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0
+                    status = check_deployment_status(project, appname, desired_count if deployment['desired_count'].isdigit() else 0)
+                    if mode1 == "stop" and status:
+                        print(f"Arrêt du déploiement : {deployment['appname']} dans le projet : {project}")
+                        scale_deployment(project, appname, 0)
+                        time.sleep(1)
+                    elif mode1 == "started":
+                        print(f"Démarrage du déploiement : {deployment['appname']} avec {deployment['desired_count']} réplicas dans le projet : {project}")
+                        # result = scale_deployment(project, appname, int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0)
+                        result = scale_deployment(project, appname, 1)
+                        if 'error' in result:
+                            raise Exception(f"Échec du déploiement avec l'erreur : {result}")
+                        time.sleep(1)
+                    elif mode1 == "restart":
+                        print(f"Redémarrage du déploiement : {deployment['appname']} avec {deployment['desired_count']} réplicas dans le projet : {project}")
+                        if status:
+                            result=scale_deployment(project, appname, 0)
+                            time.sleep(2)
+                            print(f"  ==> Retour commande d'arrêt: oc scale --replicas=0 -n {project} output: {result} ")
+                        # result = scale_deployment(project, appname, int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0)
+                        result = scale_deployment(project, appname, 1)
+                        print(f"  ==> Retour commande de démarrage: oc scale --replicas={deployment['desired_count']} -n {project} output: {result}")
+                    else:
+                        raise Exception(f'Mode invalide : {mode1}')
+                    print("\n")
+                for deployment in batch:
+                    for _ in range(3):
+                        status = check_deployment_status(project, appname, int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0)
+                        if status:
+                            break
+                        time.sleep(20)
+                    else:
+                        failed_deployments.append(deployment)
+                time.sleep(5)
+    for deployment in failed_deployments:
+        print(f"Échec du démarrage du déploiement : {deployment['appname']}")
+
+login_to_openshift(token1, server1)
+projectn = generate_project_names(project1, MYENV, MYSON)
+prjndict = {}
+for project in projectn:
+    deployments = get_deployments(project)
+    project_dict = create_project_dict(project, deployments)
+    prjndict.update(project_dict)
+prjndict_filtered = filter_prjndict(prjndict, lstproj, lstpod, lstSTATUS)
+output1 = manage_deployments(mod, prjndict_filtered, batch_size=5)
+display_deployment_status(prjndict_filtered)
