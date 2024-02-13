@@ -7,25 +7,31 @@ from prettytable import PrettyTable
 import datetime
 import os
 import sys
-# Vos variables initiales
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--simulate", action='store_true', help="Simulate script execution")
+args = parser.parse_args()
+
+simulate = args.simulate
+
 token1 = "TOKEN"
 server1 = "https://api.crc.testing:6443"
-project1 = "acc-faut-tri-"
+project1 = "prj"
 MYENV = ["dev"]
 MYSON = {"dev": ["x00"]}
 lstproj = ["nada"]
-lstpod = ["myapp1"]
+lstpod = ["myapp1","app4"]
 lstSTATUS = ["test3"]
-mod = "start"
-filter_mode = "exclude"  # ou "include non foncitonnel"
+mod = "stop"
+filter_mode = "exclude"
+RD_JOBID_NAME = "8888_BOB_"
 
-
-# Variables supplémentaires
-#used_json_status_before_stop = "C:\\Users\\root\\Downloads\\06-02-2024_16-49-30_AVANT_stop_acc-faut-tri-dev-x00_fil.json" #None  # Remplacez par le chemin du fichier JSON si nécessaire
 used_json_status_before_stop = None
-nb_scale_desired = "3"  # Remplacez par le nombre souhaité de réplicas si nécessaire
-nb_scale_desired=int(nb_scale_desired)
-# Vérification des arguments pour le mode 'start'
+nb_scale_desired = None
+if nb_scale_desired is not None:
+    nb_scale_desired=int(nb_scale_desired)
+
 if mod == "start":
     if used_json_status_before_stop is None and nb_scale_desired is None:
         print("Erreur : Pour le mode 'start', vous devez fournir soit 'used_json_status_before_stop', soit 'nb_scale_desired'.")
@@ -37,8 +43,6 @@ if mod == "start":
         print("Erreur : 'nb_scale_desired' doit être un entier qui ne dépasse pas 4.")
         sys.exit(1)
 
-
-# Vos fonctions existantes
 def run_command(cmd):
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     return result.stdout.strip()
@@ -51,6 +55,8 @@ def login_to_openshift(token, server):
         raise Exception(f'Login failed with error: {result}')
     elif 'Logged into' in result:
         print(f'Successfully logged in {server}')
+        openshift_login = result.split(' as ')[-1].split(' ')[0].replace('"',"")
+        return openshift_login
     else:
         print("Not logged check your token")
         sys.exit(1)
@@ -101,7 +107,6 @@ def get_pods_info(project, appname):
 
     return pods_info
 
-
 def get_desired_count(project, appname):
     cmd = f"oc get replicaset -n {project} -l app={appname} -o=jsonpath=" + '{.items[0].metadata.annotations.deployment\.kubernetes\.io/desired-replicas}'
     return run_command(cmd)
@@ -138,6 +143,7 @@ def extract_deployment_info(deployment):
         return {}
 
 def generate_project_names(project1, envs, SONs):
+    print("Genere les namespaces")
     projectn = []
     for env in envs:
         if env in SONs:
@@ -169,20 +175,27 @@ def filter_prjndict(projndict, proj_list, app_list, status_list, filter_mode):
             prjndict_filtered[project] = {'deployments': deployments_filtered}
     return prjndict_filtered
 
-
-def scale_deployment(project, appname, replicas=0):
+def scale_deployment(project, appname, replicas=0, simulate=False):
     cmd = f'oc scale --replicas={replicas} deployment/{appname} -n {project}'
-    result = run_command(cmd)
-    return result
+    if simulate:
+        print(f"Simulating: {cmd}")
+        return "Simulated scaling"
+    else:
+        result = run_command(cmd)
+        return result
 
-def check_deployment_status(project, appname, desired_count):
-    cmd = f'oc get pods -n {project} -l app={appname} -o json'
-    output = run_command(cmd)
-    pod_info = json.loads(output)
-    available_replicas = len(pod_info['items'])
-    if available_replicas > desired_count:
-        return False
-    return True
+def check_deployment_status(project, appname, desired_count, simulate=False):
+    if simulate:
+        print(f"Simulating: Checking deployment status for {appname} in {project}")
+        return True
+    else:
+        cmd = f'oc get pods -n {project} -l app={appname} -o json'
+        output = run_command(cmd)
+        pod_info = json.loads(output)
+        available_replicas = len(pod_info['items'])
+        if available_replicas > desired_count:
+            return False
+        return True
 
 def display_deployment_status(project_dict):
     table = PrettyTable()
@@ -207,26 +220,31 @@ def import_from_json(filename):
 def export_to_txt(table, filename):
     with open(filename, 'w') as f:
         f.write(str(table))
-def generate_filename(prefix, mode, project, extension):
+def generate_filename(openshift_login,prefix, mode, project, extension):
     date_str = datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
-    filename = f"{date_str}_{prefix}_{mode}_{project}_fil.{extension}"
+    filename = f"{RD_JOBID_NAME}_{openshift_login}_{date_str}_{prefix}_{mode}_{project}_fil.{extension}"
     return filename
 
-def manage_deployments(mode1, prjndict_filtered, batch_size=5, used_json_status_before_stop=None, nb_scale_desired=None, filter_mode="exclude"):
+def manage_deployments(mode1, prjndict_filtered, batch_size=5, used_json_status_before_stop=None, nb_scale_desired=None, filter_mode="exclude",simulate=False):
     print(f"Démarrage du mode : {mode1}")
     failed_deployments = []
-    prjndict_filtered_before = prjndict_filtered.copy()  # Création du dictionnaire AVANT
-    processed_deployments = set()  # Pour suivre les déploiements déjà traités
+    prjndict_filtered_before = prjndict_filtered.copy()
+    processed_deployments = set()
+    desired_count_dict = {}
+    count=0
+    if used_json_status_before_stop:
+        desired_count_dict = import_from_json(used_json_status_before_stop)
     for project, data in prjndict_filtered.items():
-        # Export AVANT
-        filename = generate_filename("AVANT", mode1, project, "json")
-        export_to_json(prjndict_filtered_before, filename)
-        print(f"Fichier JSON AVANT {mode1} exporté : {os.path.abspath(filename)}")
-        table = display_deployment_status(prjndict_filtered_before)
-        filename = generate_filename("AVANT", mode1, project, "txt")
-        export_to_txt(table, filename)
-        print(f"Fichier TXT AVANT {mode1} exporté : {os.path.abspath(filename)}")
-
+        if count == 0:
+            filename = generate_filename(openshift_login,"AVANT", mode1, project, "json")
+            filename_before = filename
+            export_to_json(prjndict_filtered_before, filename)
+            #print(f"Fichier JSON AVANT {mode1} exporté : {os.path.abspath(filename)}")
+            table = display_deployment_status(prjndict_filtered_before)
+            filename = generate_filename(openshift_login,"AVANT", mode1, project, "txt")
+            export_to_txt(table, filename)
+            #print(f"Fichier TXT AVANT {mode1} exporté : {os.path.abspath(filename)}")
+        count=1
         appname_to_deployments = defaultdict(list)
         for deployment in data['deployments']:
             appname_to_deployments[deployment['appname']].append(deployment)
@@ -236,86 +254,92 @@ def manage_deployments(mode1, prjndict_filtered, batch_size=5, used_json_status_
             for i in range(0, len(deployments), batch_size):
                 batch = deployments[i:i+batch_size]
                 for deployment in batch:
-                    # Vérifiez si le déploiement a déjà été traité
                     if deployment['appname'] in processed_deployments:
                         continue
                     processed_deployments.add(deployment['appname'])
 
-                    print(f"=> Traitement du déploiement applicatif : {deployment['appname']} dans le projet : {project}")
+                    #print(f"=> Traitement du déploiement applicatif : {deployment['appname']} dans le projet : {project}")
+                    desired_count = int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0
+                    status = False
                     if mode1 == "start":
-                        if used_json_status_before_stop:
-                            desired_count_dict = import_from_json(used_json_status_before_stop)
-                            desired_count = desired_count_dict.get(project, {}).get(appname, 1)
-                        elif nb_scale_desired is not None:
-                            desired_count = min(nb_scale_desired, 4)  # Assurez-vous que nb_scale_desired ne dépasse pas 4
-                        else:
-                            desired_count = int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0
-                    else:
-                        desired_count = int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0
-                    status = check_deployment_status(project, appname, desired_count if deployment['desired_count'].isdigit() else 0)
-                    if mode1 == "stop" and status:
-                        print(f"Arrêt du déploiement : {deployment['appname']} dans le projet : {project}")
-                        scale_deployment(project, appname, 0)
-                        time.sleep(1)
-                    elif mode1 == "start":
-                        print(f"Démarrage du déploiement : {deployment['appname']} avec {deployment['desired_count']} réplicas dans le projet : {project}")
-                        result = scale_deployment(project, appname, desired_count)
+                        desired_count = 1
+                        json_used = False
+                        for dep in desired_count_dict.get(project, {}).get('deployments', []):
+                            if dep['appname'] == deployment['appname']:
+                                desired_count = int(dep.get('desired_count', '1'))
+                                json_used = True
+                                break
+                        if not json_used:
+                            if nb_scale_desired is not None:
+                                desired_count = min(nb_scale_desired, 4)
+                            else:
+                                desired_count = int(deployment['desired_count']) if deployment['desired_count'].isdigit() else 0
+                        status = check_deployment_status(project, appname, desired_count if deployment['desired_count'].isdigit() else 0,simulate=simulate)
+                        #print(f"Démarrage du déploiement : {deployment['appname']} avec {desired_count} réplicas dans le projet : {project}")
+                        result = scale_deployment(project, appname, desired_count,simulate=simulate)
                         if 'error' in result:
                             raise Exception(f"Échec du déploiement avec l'erreur : {result}")
                         time.sleep(1)
+                    elif mode1 == "stop":
+                        #print(f"Arrêt du déploiement : {deployment['appname']} dans le projet : {project}")
+                        scale_deployment(project, appname, 0,simulate=simulate)
+                        #time.sleep(0.1)
                     elif mode1 == "restart":
-                        print(f"Redémarrage du déploiement : {deployment['appname']} avec {deployment['desired_count']} réplicas dans le projet : {project}")
+                        #print(f"Redémarrage du déploiement : {deployment['appname']} avec {desired_count} réplicas dans le projet : {project}")
                         if status:
-                            result=scale_deployment(project, appname, 0)
+                            result=scale_deployment(project, appname, 0,simulate=simulate)
                             time.sleep(2)
-                            print(f"  ==> Retour commande d'arrêt: oc scale --replicas=0 -n {project} output: {result} ")
-                        result = scale_deployment(project, appname, desired_count)
-                        print(f"  ==> Retour commande de démarrage: oc scale --replicas={deployment['desired_count']} -n {project} output: {result}")
+                            #print(f"  ==> Retour commande d'arrêt: oc scale --replicas=0 -n {project} output: {result} ")
+                        result = scale_deployment(project, appname, desired_count,simulate=simulate)
+                        #print(f"  ==> Retour commande de démarrage: oc scale --replicas={desired_count} -n {project} output: {result}")
                     else:
                         raise Exception(f'Mode invalide : {mode1}')
-                    print("\n")
-                    # Interrogation des déploiements et pods après l'exécution du mode
+                    #print("\n")
+                    # if mode1 == "stop":
+                    #     time.sleep(0.1)
+                    # elif mode1 == "start":
+                    #     time.sleep(1)
+                    # elif mode1 == "restart":
+                    #     time.sleep(0.15)
                     deployments = get_deployments(project)
                     project_dict = create_project_dict(project, deployments)
                     prjndict_filtered.update(project_dict)
-
-
                     prjndict_filtered = filter_prjndict(prjndict_filtered, lstproj, lstpod, lstSTATUS, filter_mode)
-                    print(f"prjndict_filtered après le filtrage : {prjndict_filtered}")
-                for deployment in batch:
-                    for _ in range(3):
-                        status = check_deployment_status(project, appname, desired_count if deployment['desired_count'].isdigit() else 0)
-                        if status:
-                            break
-                        time.sleep(20)
-                    else:
-                        failed_deployments.append(deployment)
-                time.sleep(5)
+                # for deployment in batch:
+                #     for _ in range(3):
+                #         status = check_deployment_status(project, appname, desired_count if deployment['desired_count'].isdigit() else 0,simulate=simulate)
+                #         if status:
+                #             break
+                #         time.sleep(10)
+                #     else:
+                #         failed_deployments.append(deployment)
+                #time.sleep(2)
     prjndict_filtered_after = prjndict_filtered
+
     for deployment in failed_deployments:
         print(f"Échec du démarrage du déploiement : {deployment['appname']}")
 
-    prjndict_filtered_after = prjndict_filtered  # Création du dictionnaire APRES
-    # Export APRES
-    filename = generate_filename("APRES", mode1, project, "json")
+
+    filename = generate_filename(openshift_login,"APRES", mode1, project, "json")
     export_to_json(prjndict_filtered_after, filename)
-    print(f"Fichier JSON APRES {mode1} exporté : {os.path.abspath(filename)}")
+    #print(f"Fichier JSON APRES {mode1} exporté : {os.path.abspath(filename)}")
     table = display_deployment_status(prjndict_filtered_after)
-    filename = generate_filename("APRES", mode1, project, "txt")
+    filename = generate_filename(openshift_login,"APRES", mode1, project, "txt")
     export_to_txt(table, filename)
-    print(f"Fichier TXT APRES {mode1} exporté : {os.path.abspath(filename)}")
+    #print(f"Fichier TXT APRES {mode1} exporté : {os.path.abspath(filename)}")
 
+    if mode1 == "stop":
+        print("\nA UTILISER SI BESOIN en MODE START POUR RESTAURER LA VALEUR DU SCALE INITIAL SUITE A L'UTILISATION DU MODE STOP")
+        print(f"Chemin vers le fichier JSON AVANT : {filename_before}")
 
-
-login_to_openshift(token1, server1)
+openshift_login=login_to_openshift(token1, server1)
 projectn = generate_project_names(project1, MYENV, MYSON)
 prjndict = {}
 for project in projectn:
+    print(f"Récupère la liste des deployment de {project} et ajout dans le dictionnaire")
     deployments = get_deployments(project)
     project_dict = create_project_dict(project, deployments)
     prjndict.update(project_dict)
-
+print("Utilisation des Filtres")
 prjndict_filtered = filter_prjndict(prjndict, lstproj, lstpod, lstSTATUS, filter_mode)
-output1 = manage_deployments(mode1=mod, prjndict_filtered=prjndict_filtered, batch_size=5, used_json_status_before_stop=used_json_status_before_stop, nb_scale_desired=nb_scale_desired, filter_mode=filter_mode)
-# output=display_deployment_status(prjndict_filtered)
-# print(output)
+output1 = manage_deployments(mode1=mod, prjndict_filtered=prjndict_filtered, batch_size=5, used_json_status_before_stop=used_json_status_before_stop, nb_scale_desired=nb_scale_desired, filter_mode=filter_mode,simulate=simulate)
