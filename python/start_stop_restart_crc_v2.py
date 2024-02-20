@@ -184,6 +184,11 @@ def scale_deployment(project, appname, replicas=0, simulate=False):
         result = run_command(cmd)
         return result
 
+def rollout_restart(project, appname):
+    cmd = f"oc rollout restart deployment/{appname} -n {project}"
+    result = run_command(cmd)
+    return result
+
 def check_deployment_status(project, appname, desired_count, simulate=False):
     if simulate:
         print(f"Simulating: Checking deployment status for {appname} in {project}")
@@ -284,7 +289,7 @@ def manage_deployments(mode1, prjndict_filtered, batch_size=5, used_json_status_
                         #print(f"Arrêt du déploiement : {deployment['appname']} dans le projet : {project}")
                         scale_deployment(project, appname, 0,simulate=simulate)
                         #time.sleep(0.1)
-                    elif mode1 == "restart":
+                    elif mode1 == "scale_restart":
                         #print(f"Redémarrage du déploiement : {deployment['appname']} avec {desired_count} réplicas dans le projet : {project}")
                         if status:
                             result=scale_deployment(project, appname, 0,simulate=simulate)
@@ -292,6 +297,9 @@ def manage_deployments(mode1, prjndict_filtered, batch_size=5, used_json_status_
                             #print(f"  ==> Retour commande d'arrêt: oc scale --replicas=0 -n {project} output: {result} ")
                         result = scale_deployment(project, appname, desired_count,simulate=simulate)
                         #print(f"  ==> Retour commande de démarrage: oc scale --replicas={desired_count} -n {project} output: {result}")
+                    elif mode1 == "rollout_restart":
+                        #print(f"Redémarrage du déploiement : {deployment['appname']} dans le projet : {project}")
+                        result = rollout_restart(project, appname)
                     else:
                         raise Exception(f'Mode invalide : {mode1}')
                     #print("\n")
@@ -299,7 +307,7 @@ def manage_deployments(mode1, prjndict_filtered, batch_size=5, used_json_status_
                     #     time.sleep(0.1)
                     # elif mode1 == "start":
                     #     time.sleep(1)
-                    # elif mode1 == "restart":
+                    # elif mode1 == "scale_restart":
                     #     time.sleep(0.15)
                     deployments = get_deployments(project)
                     project_dict = create_project_dict(project, deployments)
