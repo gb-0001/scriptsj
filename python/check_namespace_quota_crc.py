@@ -9,8 +9,8 @@
 # # alert_triggered = check_quota(TOKEN, SERVER, NAMESPACE, NAME)
 # # print(alert_triggered)
 # # # quota_check.py
-# # import requests
-# # import json
+import requests
+import json
 
 def check_quota(TOKEN, SERVER, NAMESPACE, NAME, DEFAULT_ALERT_THRESHOLD=15):
     # Effectuer la requête à l'API
